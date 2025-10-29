@@ -1,54 +1,60 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <template id="price_checkbox_report_sale_order_document_inherit" inherit_id="sale.report_saleorder_document">
+    <template id="price_checkbox_report_sale_order_document_inherit"
+              inherit_id="sale.report_saleorder_document">
 
-         <xpath expr="//th[@name='th_priceunit']" position="replace">
-            <t t-set="check_box_check" t-value="doc.order_line.filtered(lambda x:not x.x_studio_verberg_prijs and x.product_id)"/>
-            <t t-if="check_box_check">
+        <!-- =========== UNIT PRICE TH =========== -->
+        <xpath expr="//th[@name='th_priceunit']" position="replace">
 
+            <!-- één keer centrale flag -->
+            <t t-set="all_hide"
+               t-value="not bool(doc.order_line.filtered(lambda l: not l.x_studio_verberg_prijs and l.product_id))"/>
+
+            <t t-if="not all_hide">
                 <th name="th_priceunit" class="text-right">Eenheidsprijs</th>
             </t>
-
         </xpath>
+
+        <!-- =========== UNIT PRICE TD =========== -->
         <xpath expr="//td[@name='td_priceunit']" position="replace">
-            <t t-set="check_box_check" t-value="doc.order_line.filtered(lambda x:not x.x_studio_verberg_prijs and x.product_id)"/>
-            <t t-if="check_box_check">
-                <td name="td_priceunit" style="text-align:right">
+            <t t-if="not all_hide">
+                <td name="td_priceunit" class="text-right">
                     <t t-if="not line.x_studio_verberg_prijs">
-                        <span t-field="line.price_unit"/><pan> €</pan>
+                        <span t-field="line.price_unit"/> €
                     </t>
                 </td>
             </t>
-
         </xpath>
-        <xpath expr="//th[@name='th_subtotal']" position="replace">
-            <t t-set="check_box_check_head" t-value="doc.order_line.filtered(lambda x:not x.x_studio_verberg_prijs and x.product_id)"/>
-            <t t-if="check_box_check_head">
-                <th name="th_subtotal" class="text-right">
 
-                    <t t-if="showTaxes==False">
-                                            <span>Bedrag</span>
-                                        </t>
-                                        <t t-if="showTaxes==True">
-                                            <span>Totale prijs</span>
-                                        </t>
+        <!-- =========== SUBTOTAL TH =========== -->
+        <xpath expr="//th[@name='th_subtotal']" position="replace">
+            <t t-if="not all_hide">
+                <th name="th_subtotal" class="text-right">
+                    <t t-if="not showTaxes">
+                        <span>Bedrag</span>
+                    </t>
+                    <t t-if="showTaxes">
+                        <span>Totale prijs</span>
+                    </t>
                 </th>
             </t>
         </xpath>
+
+        <!-- =========== SUBTOTAL TD =========== -->
         <xpath expr="//td[@name='td_subtotal']" position="replace">
-            <t t-set="check_box_check_line" t-value="doc.order_line.filtered(lambda x:not x.x_studio_verberg_prijs and x.product_id)"/>
-            <t t-if="check_box_check_line">
-            <td name="td_subtotal" style="text-align:right" class="o_price_total">
-                <t t-if="not line.x_studio_verberg_prijs">
-                     <t t-if="showTaxes==False">
-                                            <span t-field="line.price_subtotal"/>
-                                        </t>
-                                        <t t-if="showTaxes==True">
-                                            <span t-field="line.price_total"/>
-                                        </t>
-                </t>
-            </td>
+            <t t-if="not all_hide">
+                <td name="td_subtotal" class="text-right o_price_total">
+                    <t t-if="not line.x_studio_verberg_prijs">
+                        <t t-if="not showTaxes">
+                            <span t-field="line.price_subtotal"/>
+                        </t>
+                        <t t-if="showTaxes">
+                            <span t-field="line.price_total"/>
+                        </t>
+                    </t>
+                </td>
             </t>
         </xpath>
+
     </template>
 </odoo>
