@@ -11,7 +11,7 @@
     'depends': ['sale','account','custom_invoice_report'],
      'data': [
          #'views/sale_order_portal_view_inherit.xml',
-         'views/add_checkbox_sale_line.xml',
+         #'views/add_checkbox_sale_line.xml',
         #'views/account_line_unit_price_view.xml',
         #'reports/sale_order_report_inherit.xml',
         #'reports/invoice_line_unit_price_visibility_report.xml',
