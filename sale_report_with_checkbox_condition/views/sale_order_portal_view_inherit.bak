@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="sale_order_portal_content_inherit_unit_price_check" name="Sales Order Portal inherit unit price check" inherit_id="sale.sale_order_portal_content">
+        <xpath expr="//table[@id='sales_order_table']/thead/tr/th[3]" position="replace">
+
+            <t t-set="check_box_check" t-value="sale_order.order_line.filtered(lambda x:not x.x_studio_verberg_prijs and x.product_id)"/>
+            <t t-if="check_box_check">
+                <th t-attf-class="text-right {{ 'd-none d-sm-table-cell' if report_type == 'html' else '' }}">Eenheidsprijs</th>
+            </t>
+
+        </xpath>
+        <xpath expr="//section[@id='details']//t[@t-if='not line.display_type']/td[3]" position="replace">
+            <t t-set="check_box_check" t-value="sale_order.order_line.filtered(lambda x:not x.x_studio_verberg_prijs and x.product_id)"/>
+            <t t-if="check_box_check">
+                <td t-attf-class="text-right {{ 'd-none d-sm-table-cell' if report_type == 'html' else '' }}">
+                    <t t-if="not line.x_studio_verberg_prijs">
+                        <div
+                                t-if="line.discount &gt;= 0"
+                                t-field="line.price_unit"
+                                t-att-style="line.discount and 'text-decoration: line-through' or None"
+                                t-att-class="(line.discount and 'text-danger' or '') + ' text-right'"
+                        />
+                        <div t-if="line.discount">
+                            <t t-esc="(1-line.discount / 100.0) * line.price_unit"
+                               t-options='{"widget": "float", "decimal_precision": "Product Price"}'/>
+                        </div>
+                    </t>
+                </td>
+
+            </t>
+
+        </xpath>
+        <xpath expr="//section[@id='details']//table[@id='sales_order_table']/thead/tr/th[5]" position="replace">
+                <t t-set="check_box_check_portal" t-value="sale_order.order_line.filtered(lambda x:not x.x_studio_verberg_prijs and x.product_id)"/>
+            <t t-if="check_box_check_portal">
+                <th class="text-right">
+                    <span groups="account.group_show_line_subtotals_tax_excluded">Bedrag</span>
+                    <span groups="account.group_show_line_subtotals_tax_included">Totale prijs</span>
+                </th>
+
+            </t>
+        </xpath>
+        <xpath expr="//section[@id='details']//t[@t-if='not line.display_type']/td[5]" position="replace">
+            <t t-set="check_box_check_portal_line" t-value="sale_order.order_line.filtered(lambda x:not x.x_studio_verberg_prijs and x.product_id)"/>
+            <t t-if="check_box_check_portal_line">
+            <td class="text-right">
+                <t t-if="not line.x_studio_verberg_prijs">
+                    <span class="oe_order_line_price_subtotal" t-field="line.price_subtotal"
+                          groups="account.group_show_line_subtotals_tax_excluded"/>
+                    <span class="oe_order_line_price_total" t-field="line.price_total"
+                          groups="account.group_show_line_subtotals_tax_included"/>
+                </t>
+            </td>
+            </t>
+
+
+        </xpath>
+    </template>
+</odoo>

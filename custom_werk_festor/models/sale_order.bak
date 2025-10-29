@@ -1,0 +1,129 @@
+from odoo import models, fields, api
+import logging
+from datetime import date
+
+_logger = logging.getLogger(__name__)
+
+
+class Resource(models.Model):
+    _inherit = 'resource.resource'
+
+    df_sale_order_id = fields.Integer("Sale order id voor planning Festor")
+
+
+class PlanningSlot(models.Model):
+    _inherit = 'planning.slot'
+    df_saleorder_id = fields.Integer("Sale order id voor planning Festor")
+
+
+class SaleOrder(models.Model):
+    _inherit = 'sale.order'
+
+    df_startDatum = fields.Datetime("Van/tot event")
+    df_eindDatum = fields.Datetime("Einde event")
+
+    df_archived_old_leads = fields.Boolean("Oude leads gearchiveerd", default=False)
+
+    def write(self, values):
+        print(values)
+        if 'state' in values and values['state'] == 'cancel':
+            resourceId = self.env['resource.resource'].search([('df_sale_order_id', '=', self.id)])
+            slotId = self.env['planning.slot'].search([('df_saleorder_id', '=', self.id)])
+
+            print(resourceId)
+            print(slotId)
+
+            if resourceId.id != False:
+                resourceId.unlink()
+                print('Unlinking resource')
+
+            if slotId != False:
+                slotId.unlink()
+                print('Unlinking slot')
+
+        _logger.info(str(values))
+        _logger.info(self.state)
+
+        if 'state' in values and self.state != 'cancel' and self.state != values['state']:
+            targetState = None
+            if values['state'] in ['draft', 'sent']:
+                targetState = 'draft'
+            if values['state'] in ['sale']:
+                targetState = 'published'
+
+            if targetState != None:
+                slotId = self.env['planning.slot'].search([('df_saleorder_id', '=', self.id)])
+                if slotId.id != False:
+                    slotId.write({'state': targetState})
+
+        result = super(SaleOrder, self).write(values)
+        return result
+
+    def createUpdateEvent(self):
+        if self.df_eindDatum == False or self.df_startDatum == False:
+            return {
+                'type': 'ir.actions.client',
+                'tag': 'display_notification',
+                'params': {
+                    'title': "Fout",
+                    'type': 'danger',
+                    'message': 'De velden start- en einddatum moeten beide ingevuld zijn'
+                },
+            }
+
+        resourceId = self.env['resource.resource'].search([('df_sale_order_id', '=', self.id)])
+        vals = {
+            'name': self.display_name + ' - ' + self.partner_id.display_name,
+            'df_sale_order_id': self.id
+        }
+
+        if resourceId.id == False:
+            resourceId = self.env['resource.resource'].create(vals)
+        else:
+            self.env['resource.resource'].write(vals)
+
+        if self.state in ['draft', 'sent', 'sale']:
+
+            if self.state in ['draft', 'sent']:
+                targetState = 'draft'
+            else:
+                targetState = 'published'
+
+            vals = {
+                'sale_order_id': self.id,
+                'start_datetime': self.df_startDatum,
+                'end_datetime': self.df_eindDatum,
+                'resource_id': resourceId.id,
+                'state': targetState
+            }
+
+            slotId = self.env['planning.slot'].search([('df_saleorder_id', '=', self.id)])
+
+            if slotId.id == False:
+                slotId = self.env['planning.slot'].create(vals)
+
+                slotId.write({'sale_order_id': self.id})
+                slotId.write({'df_saleorder_id': self.id})
+            else:
+                slotId.write(vals)
+
+    def archiveOldLeads(self):
+        allSos = self.env['sale.order'].search([('opportunity_id', '!=', False),('state','=','sale'),('df_archived_old_leads','=',False)])
+
+        _logger.info('Start run...')
+        for a in allSos:
+            _logger.info(str(a))
+            
+            today = date.today()
+            
+            datumEvent = a.x_studio_datum_event
+            
+            _logger.info(str(datumEvent))
+            _logger.info(str(today))
+            
+            if datumEvent != False and today > datumEvent:
+                _logger.info('Here')
+                a.opportunity_id.stage_id = 9
+                a.df_archived_old_leads = True
+                _logger.info('Work done')
+            

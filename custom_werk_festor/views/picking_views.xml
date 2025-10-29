@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="df_picking_form_inherit" model="ir.ui.view">
+        <field name="name">df.picking.form.inherit</field>
+        <field name="model">stock.picking</field>
+        <field name="inherit_id" ref="stock.view_picking_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//button[@name='button_validate']" position="after">
+                <button type="object" name="po_aanmaken_voor_dropship_rental" string="Po aanmaken voor tekorte producten"></button>
+            </xpath>
+        </field>
+    </record>
+</odoo>

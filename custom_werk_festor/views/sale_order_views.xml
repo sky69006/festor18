@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="sale_order_views_inherit_dataforge" model="ir.ui.view">
+        <field name="name">sale.order.view.inherit.dataforge</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_order_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='payment_term_id']" position="after">
+				<field name="x_studio_aantal_personen" />
+                <field name="df_startDatum" widget="datarange" options="{&quot;start_date_field&quot;:&quot;df_startDatum&quot;,&quot;end_date_field&quot;:&quot;df_eindDatum&quot;}"/>
+                <field name="df_eindDatum" invisible="1"></field>
+            </xpath>
+        </field>
+    </record>
+</odoo>
