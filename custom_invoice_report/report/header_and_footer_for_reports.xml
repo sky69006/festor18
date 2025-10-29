@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+  <template id="custom_report_header" name="all_report_header" inherit_id="web.external_layout_standard">
+
+    <!-- HEADER -->
+    <xpath expr="//div[@t-attf-class='header o_company_#{company.id}_layout']" position="replace">
+      <div class="header col-12"
+           style="background-color:#56B773; margin-left:-14px; position:fixed; font-weight: normal;">
+        <div class="row" style="padding:0px; color:white;">
+          <div class="col-7" style="padding-left:10px;">
+            <img src="/custom_invoice_report/static/src/img/Logo.png" height="200" width="280px"
+                 style="padding-top:10px; padding-bottom:15px;"/>
+            <div class="first-page" style="padding-left:20px; padding-bottom:10px;">
+              <div class="row" t-if="o" style="padding-left:30px;">
+                <div class="col-6" style="padding-right:8px;">
+                  <div><div t-esc="o.company_id.name"/></div>
+                  <div><div t-esc="o.company_id.street"/></div>
+                  <div>
+                    <span t-esc="o.company_id.zip"/>
+                    <t t-if="o.company_id.zip">&#160;</t>
+                    <span t-esc="o.company_id.city"/>
+                  </div>
+                </div>
+                <div class="col-6" style="padding-left:8px;">
+                  <div><div t-esc="o.company_id.vat"/></div>
+                  <div><div>IBAN BE27 0019 1266 3073</div></div>
+                  <div><div>BIC: GEBABEBB</div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-5" t-if="o" style="padding-top:30px; padding-right:0px; width:100%!important;">
+            <div class="first-page" style="padding-top:10px; margin:0px;">
+              <div class="row text-left" t-if="o.partner_id" t-esc="o.partner_id.name"/>
+              <div class="row text-left" t-if="o.partner_id.street" t-esc="o.partner_id.street"/>
+              <div class="row text-left">
+                <t t-if="o.partner_id.zip" t-esc="o.partner_id.zip"/>
+                <t t-if="o.partner_id.zip">&#160;</t>
+                <t t-if="o.partner_id.city" t-esc="o.partner_id.city"/>
+              </div>
+              <div class="row text-left" t-if="o.partner_id.country_id"
+                   t-esc="o.partner_id.country_id.name"/>
+              <div class="row text-left">
+                <t t-if="o.partner_id.vat">
+                  BTW : <t t-esc="o.partner_id.vat"/>
+                </t>
+              </div>
+            </div>
+
+            <div class="not-first-page" style="position:absolute; width:100%;">
+              <div class="text-left" t-if="o.company_id.name" t-esc="o.company_id.name"/>
+              <div t-if="o.company_id.street" t-esc="o.company_id.street"/>
+              <div>
+                <t t-if="o.company_id.zip" t-esc="o.company_id.zip"/>
+                <t t-if="o.company_id.zip">&#160;</t>
+                <t t-esc="o.company_id.city"/>
+              </div>
+              <br/>
+              <div t-if="o.company_id.vat" t-esc="o.company_id.vat"/>
+              <div>IBAN BE27 0019 1266 3073</div>
+              <div style="text-align:left; padding-left:0px;">BIC: GEBABEBB</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </xpath>
+
+    <!-- FOOTER -->
+    <xpath expr="//div[contains(@t-attf-class,'footer')]" position="replace">
+      <div class="footer"
+           style="background-color:black; width:100%; margin-left:-20px; right:0; position:fixed; bottom:0;">
+        <div style="border-top:1px solid black;">
+          <div class="row" style="padding:0px;">
+            <div class="col-4 text-left"
+                 style="color:white; padding-top:80px; padding-left:50px; padding-right:0px; font-weight: normal;">
+              <b>
+                <div style="font-size:45px; line-height:100%;">LOOSE TIE EVENTS</div>
+              </b>
+            </div>
+            <div class="col-4 text-left" style="padding:0px; padding-top:30px;">
+              <img src="/custom_invoice_report/static/src/img/Dassen.png" height="170" width="430"/>
+            </div>
+            <div class="col-4 text-right" t-if="o"
+                 style="color:white; padding-top:90px; padding-right:45px; padding-left:35px;">
+              <b t-esc="o.company_id.email"/><br/>
+              <b>056/29.69.25</b><br/>
+              <b>P<span class="page"/> / <span class="topage"/></b>
+            </div>
+          </div>
+        </div>
+      </div>
+    </xpath>
+
+  </template>
+</odoo>
