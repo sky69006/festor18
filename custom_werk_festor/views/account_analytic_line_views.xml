@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <record id="project_task_form_timesheet_datetime" model="ir.ui.view">
+        <field name="name">project.task.timesheet.datetime</field>
+        <field name="model">project.task</field>
+
+        <!-- IMPORTANT: inherit the hr_timesheet view where timesheet_ids is defined -->
+        <field name="inherit_id" ref="project.view_task_form2"/>
+
+        <field name="arch" type="xml">
+
+            <!-- Inject start/end datetime into the timesheet tree -->
+            <xpath expr="/form/sheet/notebook/page[@name='page_timesheets']/field[@name='timesheet_ids']/list/field[@name='employee_id']" position="after">
+                <field name="start_datetime"/>
+                <field name="end_datetime"/>
+            </xpath>
+
+        </field>
+    </record>
+</odoo>

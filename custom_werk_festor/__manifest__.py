@@ -16,6 +16,8 @@
         'views/account_move.xml',
         'views/product_template.xml',
         'views/picking_views.xml',
+        'report/report_saleorder_custom.xml',
+        'views/account_analytic_line_views.xml',
     ],
     'installable': True,
 }

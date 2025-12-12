@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <template id="report_saleorder_document_custom"
+              inherit_id="sale.report_saleorder_document"
+              priority="20">
+
+        <xpath expr="//div[@id='informations']" position="inside">
+
+
+            <!-- ==== 1) Van/tot event ==== -->
+            <div t-if="doc.df_startDatum or doc.df_eindDatum" class="col">
+                <strong>Van/tot event</strong>
+                <div>
+
+                    <!-- Start -->
+                    <t t-if="doc.df_startDatum">
+                        <t t-out="doc.df_startDatum.strftime('%d/%m/%Y %H:%M')"/>
+                    </t>
+
+                    <!-- Separator -->
+                    <t t-if="doc.df_startDatum and doc.df_eindDatum">
+                        <p style="margin:0;">tot</p>
+                    </t>
+
+                    <!-- Einde -->
+                    <t t-if="doc.df_eindDatum">
+                        <t t-out="doc.df_eindDatum.strftime('%d/%m/%Y %H:%M')"/>
+                    </t>
+
+                </div>
+            </div>
+
+
+            <!-- ==== 2) Rental period ==== -->
+            <div t-if="doc.rental_start_date or doc.rental_return_date" class="col">
+                <strong>Van/tot event</strong>
+                <div>
+
+                    <!-- Start -->
+                    <t t-if="doc.rental_start_date">
+                        <t t-out="doc.rental_start_date.strftime('%d/%m/%Y %H:%M')"/>
+                    </t>
+
+                    <!-- Separator -->
+                    <t t-if="doc.rental_start_date and doc.rental_return_date">
+                        <p style="margin:0;">tot</p>
+                    </t>
+
+                    <!-- Einde -->
+                    <t t-if="doc.rental_return_date">
+                        <t t-out="doc.rental_return_date.strftime('%d/%m/%Y %H:%M')"/>
+                    </t>
+
+                </div>
+            </div>
+
+
+            <!-- ==== 3) Aantal personen ==== -->
+            <div t-if="doc.x_studio_aantal_personen" class="col">
+                <strong>Aantal personen</strong>
+                <div>
+                    <t t-out="doc.x_studio_aantal_personen"/>
+                </div>
+            </div>
+
+
+        </xpath>
+    </template>
+</odoo>

@@ -7,6 +7,15 @@ _logger = logging.getLogger(__name__)
 class StockPicking(models.Model):
     _inherit = 'stock.picking'
 
+    def showMoves(self):
+        for record in self:
+            for ml in record.move_ids:
+                print(ml.read())
+
+            for ret in record.return_ids:
+                for m in ret.move_ids:
+                    print(m.read())
+
     def get_koelcel_stock(self, nProductId, nAantal):
         nQ = 0.0
         aantalOpStockQ = self.env['stock.quant'].search([('location_id','=',60),('product_id','=',nProductId)])
@@ -112,6 +121,16 @@ class StockPicking(models.Model):
                 print(ml)
 
                 ml.write({'product_uom_qty': c['newQuantity']})
+
+            for ret in record.return_ids:
+                for ret_move in ret.move_ids:
+                    for c in correctMoveLines:
+                        original_move = self.env['stock.move'].browse(c['moveLineId'])
+
+                        # PRODUCT MATCH + CHECK DIRECTION (return pickings usually reverse quantities)
+                        if ret_move.product_id.id == original_move.product_id.id:
+                            # Zet dezelfde hoeveelheid als originele picking
+                            ret_move.write({'product_uom_qty': c['newQuantity']})
 
             action = {
                 'type': 'ir.actions.client',
