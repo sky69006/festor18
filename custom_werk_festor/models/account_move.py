@@ -6,23 +6,35 @@ class AccountMoveLine(models.Model):
     df_analytic_account = fields.Many2one('account.analytic.account', 'Kostenplaats')
 
     def write(self, values):
-        newValues = values.copy()  # IMPORTANT
-        if 'df_analytic_account' in newValues:
-            newValues['analytic_distribution'] = {
-                str(newValues['df_analytic_account']): 100
-            }
+        new_values = values.copy()
 
-        return super(AccountMoveLine, self).write(newValues)  # IMPORTANT RETURN
+        if 'df_analytic_account' in new_values:
+            analytic_id = new_values.get('df_analytic_account')
+
+            if analytic_id:
+                new_values['analytic_distribution'] = {
+                    str(analytic_id): 100.0
+                }
+            else:
+                # Clear distribution if analytic is removed
+                new_values['analytic_distribution'] = {}
+
+        return super().write(new_values)
 
     @api.model_create_multi
-    def create(self, valuesList):
-        newValuesList = []
-        for values in valuesList:
-            newValues = values.copy()  # IMPORTANT
-            if 'df_analytic_account' in newValues:
-                newValues['analytic_distribution'] = {
-                    str(newValues['df_analytic_account']): 100
-                }
-            newValuesList.append(newValues)
+    def create(self, values_list):
+        new_values_list = []
 
-        return super(AccountMoveLine, self).create(newValuesList)  # IMPORTANT RETURN
+        for values in values_list:
+            new_values = values.copy()
+            analytic_id = new_values.get('df_analytic_account')
+
+            if analytic_id:
+                new_values['analytic_distribution'] = {
+                    str(analytic_id): 100.0
+                }
+
+            new_values_list.append(new_values)
+
+        return super().create(new_values_list)
+
