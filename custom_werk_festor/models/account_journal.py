@@ -29,10 +29,10 @@ class AccountJournal(models.Model):
 
     def open_purchase_draft_bills(self):
         action = self.open_action()
-        action['domain'] = [
-            ('move_type', '=', 'in_invoice'),
-            ('state', '=', 'draft'),
-            ('journal_id', '=', self.id),
-        ]
-        action['context'] = dict(action.get('context', {}), default_move_type='in_invoice')
+        action.pop('domain', None)
+        ctx = dict(action.get('context', {}))
+        ctx['search_default_draft'] = 1
+        ctx['search_default_vendor_bills_only'] = 1
+        ctx['default_move_type'] = 'in_invoice'
+        action['context'] = ctx
         return action
