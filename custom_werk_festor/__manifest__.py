@@ -18,6 +18,7 @@
         'views/picking_views.xml',
         'report/report_saleorder_custom.xml',
         'views/account_analytic_line_views.xml',
+        'views/account_journal_dashboard.xml',
     ],
     'installable': True,
 }
