@@ -20,7 +20,7 @@
                         <a t-if="journal_type == 'sale'" type="object" name="open_action" context="{'search_default_draft': '1'}">
                             <span title="Invoices to Validate"><t t-out="dashboard.number_draft"/> To Validate</span>
                         </a>
-                        <a t-if="journal_type == 'purchase'" type="object" name="open_action" context="{'search_default_draft': '1', 'default_move_type': 'in_invoice'}">
+                        <a t-if="journal_type == 'purchase'" type="object" name="open_purchase_draft_bills">
                             <span title="Bills to Validate" id="account_dashboard_purchase_draft"><t t-out="record.purchase_draft_count.raw_value"/> To Validate</span>
                         </a>
                     </div>
