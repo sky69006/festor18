@@ -1,23 +1,28 @@
-from odoo import models
+from odoo import api, fields, models
 
 
 class AccountJournal(models.Model):
     _inherit = 'account.journal'
 
-    def _get_journal_dashboard_data(self):
-        data = super()._get_journal_dashboard_data()
+    purchase_draft_count = fields.Integer(
+        compute='_compute_purchase_draft',
+    )
+    purchase_draft_amount = fields.Monetary(
+        compute='_compute_purchase_draft',
+        currency_field='currency_id',
+    )
 
-        if self.type == 'purchase':
-            domain = [
-                ('move_type', '=', 'in_invoice'),
-                ('state', '=', 'draft'),
-                ('journal_id', '=', self.id),
-            ]
-            moves = self.env['account.move'].search(domain)
-            data['number_draft'] = len(moves)
-            data['sum_draft'] = self.env['account.move']._format_value(
-                sum(moves.mapped('amount_total')),
-                self.currency_id,
-            )
-
-        return data
+    @api.depends('type')
+    def _compute_purchase_draft(self):
+        for journal in self:
+            if journal.type == 'purchase':
+                moves = self.env['account.move'].search([
+                    ('move_type', '=', 'in_invoice'),
+                    ('state', '=', 'draft'),
+                    ('journal_id', '=', journal.id),
+                ])
+                journal.purchase_draft_count = len(moves)
+                journal.purchase_draft_amount = sum(moves.mapped('amount_total'))
+            else:
+                journal.purchase_draft_count = 0
+                journal.purchase_draft_amount = 0

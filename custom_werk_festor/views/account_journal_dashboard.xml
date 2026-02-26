@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="account_journal_dashboard_kanban_view_inherit" model="ir.ui.view">
+        <field name="name">account.journal.dashboard.kanban.inherit.custom_werk_festor</field>
+        <field name="model">account.journal</field>
+        <field name="inherit_id" ref="account.account_journal_dashboard_kanban_view"/>
+        <field name="arch" type="xml">
+
+            <!-- Declare the computed fields in the kanban view -->
+            <field name="bank_account_id" position="after">
+                <field name="purchase_draft_count"/>
+                <field name="purchase_draft_amount"/>
+            </field>
+
+            <!-- Replace the draft row to use computed fields for purchase journals -->
+            <xpath expr="//t[@t-name='JournalBodySalePurchase']//div[@name='kanban_primary_right']/div[@t-if='dashboard.number_draft']" position="replace">
+                <div class="row" t-if="dashboard.number_draft || (journal_type == 'purchase' &amp;&amp; record.purchase_draft_count.raw_value &gt; 0)">
+                    <div class="col overflow-hidden text-start">
+                        <a t-if="journal_type == 'sale'" type="object" name="open_action" context="{'search_default_draft': '1'}">
+                            <span title="Invoices to Validate"><t t-out="dashboard.number_draft"/> To Validate</span>
+                        </a>
+                        <a t-if="journal_type == 'purchase'" type="object" name="open_action" context="{'search_default_draft': '1'}">
+                            <span title="Bills to Validate" id="account_dashboard_purchase_draft"><t t-out="record.purchase_draft_count.raw_value"/> To Validate</span>
+                        </a>
+                    </div>
+                    <div class="col-auto text-end">
+                        <span t-if="journal_type == 'sale'" dir="ltr"><t t-out="dashboard.sum_draft"/></span>
+                        <span t-if="journal_type == 'purchase'" dir="ltr"><t t-out="record.purchase_draft_amount.value"/></span>
+                    </div>
+                </div>
+            </xpath>
+
+        </field>
+    </record>
+
+</odoo>
