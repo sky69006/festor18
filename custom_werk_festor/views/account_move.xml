@@ -10,4 +10,16 @@
             </xpath>
         </field>
     </record>
+
+    <record id="df_account_move_search_inherit" model="ir.ui.view">
+        <field name="name">df.account.move.search.inherit</field>
+        <field name="model">account.move</field>
+        <field name="inherit_id" ref="account.view_account_move_filter"/>
+        <field name="arch" type="xml">
+            <xpath expr="//filter[@name='draft']" position="after">
+                <filter name="vendor_bills_only" string="Vendor Bills"
+                        domain="[('move_type', '=', 'in_invoice')]"/>
+            </xpath>
+        </field>
+    </record>
 </odoo>
