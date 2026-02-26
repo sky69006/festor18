@@ -31,7 +31,7 @@ class AccountJournal(models.Model):
         action = self.open_action()
         action.pop('domain', None)
         ctx = dict(action.get('context', {}))
-        ctx['search_default_draft'] = 1
+        ctx['search_default_unposted'] = 1
         ctx['search_default_vendor_bills_only'] = 1
         ctx['default_move_type'] = 'in_invoice'
         action['context'] = ctx

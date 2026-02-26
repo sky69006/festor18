@@ -16,7 +16,7 @@
         <field name="model">account.move</field>
         <field name="inherit_id" ref="account.view_account_move_filter"/>
         <field name="arch" type="xml">
-            <xpath expr="//filter[@name='draft']" position="after">
+            <xpath expr="//filter[@name='unposted']" position="after">
                 <filter name="vendor_bills_only" string="Vendor Bills"
                         domain="[('move_type', '=', 'in_invoice')]"/>
             </xpath>
