@@ -26,3 +26,13 @@ class AccountJournal(models.Model):
             else:
                 journal.purchase_draft_count = 0
                 journal.purchase_draft_amount = 0
+
+    def open_purchase_draft_bills(self):
+        action = self.open_action()
+        action['domain'] = [
+            ('move_type', '=', 'in_invoice'),
+            ('state', '=', 'draft'),
+            ('journal_id', '=', self.id),
+        ]
+        action['context'] = dict(action.get('context', {}), default_move_type='in_invoice')
+        return action
