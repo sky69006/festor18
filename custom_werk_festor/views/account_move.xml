@@ -10,4 +10,16 @@
             </xpath>
         </field>
     </record>
+
+    <record id="view_account_bill_filter_draft_override" model="ir.ui.view">
+        <field name="name">account.bill.filter.draft.override</field>
+        <field name="model">account.move</field>
+        <field name="inherit_id" ref="account.view_account_bill_filter"/>
+        <field name="priority">200</field>
+        <field name="arch" type="xml">
+            <filter name="draft" position="attributes">
+                <attribute name="domain">[('state', '=', 'draft')]</attribute>
+            </filter>
+        </field>
+    </record>
 </odoo>
