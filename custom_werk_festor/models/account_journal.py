@@ -29,10 +29,10 @@ class AccountJournal(models.Model):
 
     def open_purchase_draft_bills(self):
         action = self.open_action()
-        action.pop('domain', None)
+        action['domain'] = [('move_type', '=', 'in_invoice')]
         ctx = dict(action.get('context', {}))
+        ctx.pop('search_default_purchase', None)
         ctx['search_default_unposted'] = 1
-        ctx['search_default_vendor_bills_only'] = 1
         ctx['default_move_type'] = 'in_invoice'
         action['context'] = ctx
         return action
