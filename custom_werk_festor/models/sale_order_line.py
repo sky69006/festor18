@@ -10,7 +10,8 @@ class SaleOrderLine(models.Model):
         product = self.product_id.exists()
         if not product:
             return
-        return product.action_product_forecast_report()
+        action = product.with_context(active_id=product.id, active_model='product.product').action_product_forecast_report()
+        return action
 
     @api.model
     def _create_sale_order_lines_from_rental(self, rental_order):
