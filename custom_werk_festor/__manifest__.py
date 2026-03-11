@@ -10,7 +10,7 @@
         Custom werk Festor
     """,
     "license": "LGPL-3",
-    'depends': ['account', 'sale', 'planning', 'stock'],
+    'depends': ['account', 'sale', 'sale_renting', 'planning', 'stock'],
     'data': [
         'views/sale_order_views.xml',
         'views/account_move.xml',

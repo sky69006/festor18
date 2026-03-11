@@ -5,16 +5,24 @@
         <field name="model">sale.order</field>
         <field name="inherit_id" ref="sale.view_order_form"/>
         <field name="arch" type="xml">
-            <xpath expr="//header" position="inside">
-                <button name="action_verify_rental_availability"
-                        string="Verifieer"
-                        type="object"
-                        class="btn-secondary"/>
-            </xpath>
             <xpath expr="//field[@name='payment_term_id']" position="after">
 				<field name="x_studio_aantal_personen" />
                 <field name="df_startDatum" widget="datarange" options="{&quot;start_date_field&quot;:&quot;df_startDatum&quot;,&quot;end_date_field&quot;:&quot;df_eindDatum&quot;}"/>
                 <field name="df_eindDatum" invisible="1"></field>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="rental_order_form_inherit_verifieer" model="ir.ui.view">
+        <field name="name">rental.order.form.inherit.verifieer</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale_renting.rental_order_primary_form_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//header/button[@name='action_cancel']" position="after">
+                <button name="action_verify_rental_availability"
+                        string="Verifieer"
+                        type="object"
+                        class="btn-secondary"/>
             </xpath>
         </field>
     </record>
