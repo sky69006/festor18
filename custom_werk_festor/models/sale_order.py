@@ -36,7 +36,11 @@ class SaleOrder(models.Model):
     x_studio_aantal_personen = fields.Integer("Aantal personen")
 
     def action_verify_rental_availability(self):
-        """Check if all rental products are available for the rental period."""
+        """Check if all rental products are available for the rental period.
+
+        Uses stock.move records (like Odoo's virtual stock forecast) to compute
+        availability, so it catches both rental reservations AND regular sales.
+        """
         self.ensure_one()
 
         if not self.rental_start_date or not self.rental_return_date:
@@ -50,6 +54,13 @@ class SaleOrder(models.Model):
         window_start = rental_start - timedelta(days=14)
         window_end = rental_end + timedelta(days=14)
 
+        # Get warehouse internal locations for this company
+        warehouse_locations = self.env['stock.location'].search([
+            ('usage', '=', 'internal'),
+            ('company_id', '=', self.company_id.id),
+        ])
+        location_ids = warehouse_locations.ids
+
         for line in self.order_line:
             product = line.product_id
             if not product or not product.rent_ok:
@@ -59,52 +70,122 @@ class SaleOrder(models.Model):
             if qty_needed <= 0:
                 continue
 
-            # Get ALL rental lines for this product in the wider timeline window
-            nearby_lines = self.env['sale.order.line'].search([
-                ('order_id', '!=', self.id),
-                ('order_id.state', 'in', ['sale', 'done']),
+            qty_on_hand = product.qty_available
+
+            # Get all confirmed/assigned/done stock moves for this product
+            # in the timeline window that affect warehouse stock.
+            # Outgoing moves (location_id = warehouse) reduce stock.
+            # Incoming moves (location_dest_id = warehouse) increase stock.
+            outgoing_moves = self.env['stock.move'].search([
                 ('product_id', '=', product.id),
-                ('product_uom_qty', '>', 0),
-                ('start_date', '<', window_end),
-                ('return_date', '>', window_start),
+                ('state', 'in', ['confirmed', 'assigned', 'waiting']),
+                ('location_id', 'in', location_ids),
+                ('location_dest_id', 'not in', location_ids),
+                ('date', '>=', window_start),
+                ('date', '<=', window_end),
+            ])
+            incoming_moves = self.env['stock.move'].search([
+                ('product_id', '=', product.id),
+                ('state', 'in', ['confirmed', 'assigned', 'waiting']),
+                ('location_dest_id', 'in', location_ids),
+                ('location_id', 'not in', location_ids),
+                ('date', '>=', window_start),
+                ('date', '<=', window_end),
             ])
 
-            # Filter to only those that overlap with our rental period
-            qty_reserved = 0.0
-            conflicting = []
-            for cl in nearby_lines:
-                if cl.start_date < rental_end and cl.return_date > rental_start:
-                    qty_reserved += cl.product_uom_qty
-                    conflicting.append({
-                        'order': cl.order_id.name,
-                        'partner': cl.order_id.partner_id.display_name or '',
-                        'qty': cl.product_uom_qty,
-                        'start': cl.order_id.df_startDatum,
-                        'end': cl.order_id.df_eindDatum,
-                    })
+            # Also get moves before the window that haven't been done yet
+            # (they affect the starting stock level at window_start)
+            pre_outgoing = self.env['stock.move'].search([
+                ('product_id', '=', product.id),
+                ('state', 'in', ['confirmed', 'assigned', 'waiting']),
+                ('location_id', 'in', location_ids),
+                ('location_dest_id', 'not in', location_ids),
+                ('date', '<', window_start),
+            ])
+            pre_incoming = self.env['stock.move'].search([
+                ('product_id', '=', product.id),
+                ('state', 'in', ['confirmed', 'assigned', 'waiting']),
+                ('location_dest_id', 'in', location_ids),
+                ('location_id', 'not in', location_ids),
+                ('date', '<', window_start),
+            ])
 
-            qty_on_hand = product.qty_available
-            available = qty_on_hand - qty_reserved
+            # Starting stock = on_hand adjusted for pre-window pending moves
+            starting_stock = qty_on_hand
+            for m in pre_outgoing:
+                starting_stock -= m.product_uom_qty
+            for m in pre_incoming:
+                starting_stock += m.product_uom_qty
 
-            # Collect timeline events from all nearby lines
+            # Build timeline events from stock moves
             timeline_events = []
-            for cl in nearby_lines:
+            for m in outgoing_moves:
+                origin = m.origin or m.picking_id.name or ''
                 timeline_events.append({
-                    'start': cl.start_date,
-                    'end': cl.return_date,
-                    'qty': cl.product_uom_qty,
-                    'order': cl.order_id.name,
+                    'date': m.date,
+                    'delta': -m.product_uom_qty,
+                    'origin': origin,
+                    'picking': m.picking_id.name or '',
                 })
+            for m in incoming_moves:
+                origin = m.origin or m.picking_id.name or ''
+                timeline_events.append({
+                    'date': m.date,
+                    'delta': +m.product_uom_qty,
+                    'origin': origin,
+                    'picking': m.picking_id.name or '',
+                })
+
+            timeline_events.sort(key=lambda e: e['date'])
+
+            # Compute the minimum forecasted stock during the rental period
+            forecast = starting_stock
+            min_forecast_during_rental = starting_stock
+            for ev in timeline_events:
+                forecast += ev['delta']
+                if ev['date'] >= rental_start and ev['date'] <= rental_end:
+                    min_forecast_during_rental = min(min_forecast_during_rental, forecast)
+                elif ev['date'] < rental_start:
+                    # Events before rental start affect the level going in
+                    min_forecast_during_rental = min(min_forecast_during_rental, forecast)
+
+            # The forecasted available at rental start
+            forecast_at_start = starting_stock
+            for ev in timeline_events:
+                if ev['date'] <= rental_start:
+                    forecast_at_start += ev['delta']
+                else:
+                    break
+
+            available = min_forecast_during_rental
+
+            # Build conflicting details from outgoing moves during rental period
+            conflicting = []
+            # Exclude moves from this order's pickings
+            own_picking_ids = self.picking_ids.ids
+            for m in outgoing_moves:
+                if m.picking_id.id in own_picking_ids:
+                    continue
+                if m.date >= rental_start and m.date <= rental_end:
+                    sale_order = m.sale_line_id.order_id if m.sale_line_id else False
+                    conflicting.append({
+                        'order': sale_order.name if sale_order else (m.origin or m.picking_id.name or ''),
+                        'partner': sale_order.partner_id.display_name if sale_order else (m.picking_id.partner_id.display_name if m.picking_id.partner_id else ''),
+                        'qty': m.product_uom_qty,
+                        'start': sale_order.df_startDatum if sale_order and hasattr(sale_order, 'df_startDatum') else False,
+                        'end': sale_order.df_eindDatum if sale_order and hasattr(sale_order, 'df_eindDatum') else False,
+                    })
 
             product_results.append({
                 'name': product.display_name,
                 'needed': qty_needed,
                 'on_hand': qty_on_hand,
-                'reserved': qty_reserved,
+                'forecast': available,
                 'available': available,
                 'ok': available >= qty_needed,
                 'conflicting': conflicting,
                 'timeline_events': timeline_events,
+                'starting_stock': starting_stock,
                 'window_start': window_start,
                 'window_end': window_end,
                 'rental_start': rental_start,
@@ -143,23 +224,14 @@ class SaleOrder(models.Model):
         def x_pos(dt):
             return margin_left + ((dt - window_start).total_seconds() / total_seconds) * chart_w
 
-        # Build step function of available stock over time
-        # Collect all time boundaries
-        events = []
-        for ev in p['timeline_events']:
-            events.append((ev['start'], -ev['qty']))   # stock goes down
-            events.append((ev['end'], +ev['qty']))      # stock comes back
-
-        events.sort(key=lambda e: e[0])
-
-        # Build the step points
-        stock = p['on_hand']
+        # Build step function: events are already sorted with 'date' and 'delta'
+        stock = p['starting_stock']
         points = [(window_start, stock)]
-        for dt, delta in events:
+        for ev in p['timeline_events']:
             # Add point at current level just before the change
-            points.append((dt, stock))
-            stock += delta
-            points.append((dt, stock))
+            points.append((ev['date'], stock))
+            stock += ev['delta']
+            points.append((ev['date'], stock))
         points.append((window_end, stock))
 
         # Calculate y scale
@@ -305,8 +377,11 @@ class SaleOrder(models.Model):
                 conflict_rows = ''
                 for c in p['conflicting']:
                     period = ''
-                    if c['start'] and c['end']:
-                        period = f"{c['start'].strftime('%d/%m/%Y')} - {c['end'].strftime('%d/%m/%Y')}"
+                    try:
+                        if c.get('start') and c.get('end'):
+                            period = f"{c['start'].strftime('%d/%m/%Y')} - {c['end'].strftime('%d/%m/%Y')}"
+                    except (AttributeError, TypeError):
+                        pass
                     conflict_rows += (
                         f'<tr><td style="padding:2px 8px; color:#666;">{c["order"]}</td>'
                         f'<td style="padding:2px 8px; color:#666;">{c["partner"]}</td>'
@@ -316,7 +391,7 @@ class SaleOrder(models.Model):
                 conflict_html = (
                     '<div style="margin-top:6px;">'
                     '<table style="width:100%; font-size:12px;">'
-                    '<tr style="color:#999;"><td style="padding:2px 8px;">Order</td>'
+                    '<tr style="color:#999;"><td style="padding:2px 8px;">Order/Levering</td>'
                     '<td style="padding:2px 8px;">Klant</td>'
                     '<td style="padding:2px 8px; text-align:right;">Aantal</td>'
                     '<td style="padding:2px 8px;">Periode</td></tr>'
@@ -330,11 +405,11 @@ class SaleOrder(models.Model):
             legend = (
                 '<div style="display:flex; gap:16px; font-size:11px; color:#888; margin-top:4px; flex-wrap:wrap;">'
                 '<span><span style="display:inline-block;width:12px;height:12px;background:#fff3cd;border:1px solid #e67e00;vertical-align:middle;margin-right:3px;"></span>Verhuurperiode</span>'
-                '<span><span style="display:inline-block;width:12px;height:2px;background:#4c8dba;vertical-align:middle;margin-right:3px;"></span>Beschikbare voorraad</span>'
+                '<span><span style="display:inline-block;width:12px;height:2px;background:#4c8dba;vertical-align:middle;margin-right:3px;"></span>Prognose voorraad</span>'
                 f'<span><span style="display:inline-block;width:12px;height:1px;border-top:2px dashed {status_color};vertical-align:middle;margin-right:3px;"></span>Nodig ({p["needed"]:.0f})</span>'
-                '<span><span style="display:inline-block;width:12px;height:1px;border-top:1px dashed #888;vertical-align:middle;margin-right:3px;"></span>Voorraad ({on_hand})</span>'
+                f'<span><span style="display:inline-block;width:12px;height:1px;border-top:1px dashed #888;vertical-align:middle;margin-right:3px;"></span>Voorraad ({p["on_hand"]:.0f})</span>'
                 '</div>'
-            ).format(on_hand=f'{p["on_hand"]:.0f}')
+            )
 
             rows += (
                 f'<div style="background:{row_bg}; border:1px solid #dee2e6; border-radius:6px; padding:12px; margin-bottom:8px;">'
@@ -345,8 +420,7 @@ class SaleOrder(models.Model):
                 '<div style="display:flex; gap:20px; margin-bottom:6px; font-size:13px;">'
                 f'<span>Nodig: <b>{p["needed"]:.0f}</b></span>'
                 f'<span>Voorraad: <b>{p["on_hand"]:.0f}</b></span>'
-                f'<span>Gereserveerd: <b>{p["reserved"]:.0f}</b></span>'
-                f'<span>Beschikbaar: <b style="color:{status_color};">{p["available"]:.0f}</b></span>'
+                f'<span>Prognose: <b style="color:{status_color};">{p["forecast"]:.0f}</b></span>'
                 '</div>'
                 f'{timeline_svg}'
                 f'{legend}'
