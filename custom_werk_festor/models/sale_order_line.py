@@ -10,11 +10,10 @@ class SaleOrderLine(models.Model):
         product = self.product_id.exists()
         if not product:
             return
-        action = self.env['ir.actions.actions']._for_xml_id('stock.stock_replenishment_product_product_action')
+        action = self.env['ir.actions.actions']._for_xml_id('stock.stock_forecasted_product_product_action')
         action['context'] = {
             'active_id': product.id,
             'active_model': 'product.product',
-            'product_id': product.id,
         }
         return action
 
