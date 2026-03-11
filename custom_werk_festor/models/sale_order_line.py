@@ -7,7 +7,10 @@ class SaleOrderLine(models.Model):
     def action_view_forecast(self):
         """Open the stock forecast (prognose) view for this line's product."""
         self.ensure_one()
-        return self.product_id.action_product_forecast_report()
+        product = self.product_id.exists()
+        if not product:
+            return
+        return product.action_product_forecast_report()
 
     @api.model
     def _create_sale_order_lines_from_rental(self, rental_order):

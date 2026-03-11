@@ -15,7 +15,8 @@
                         type="object"
                         icon="fa-line-chart"
                         title="Prognose"
-                        class="btn-link"/>
+                        class="btn-link"
+                        invisible="not product_template_id"/>
             </xpath>
         </field>
     </record>
