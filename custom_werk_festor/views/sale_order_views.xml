@@ -10,14 +10,6 @@
                 <field name="df_startDatum" widget="datarange" options="{&quot;start_date_field&quot;:&quot;df_startDatum&quot;,&quot;end_date_field&quot;:&quot;df_eindDatum&quot;}"/>
                 <field name="df_eindDatum" invisible="1"></field>
             </xpath>
-        </field>
-    </record>
-
-    <record id="sale_order_line_pickings_button" model="ir.ui.view">
-        <field name="name">sale.order.line.pickings.button</field>
-        <field name="model">sale.order</field>
-        <field name="inherit_id" ref="sale.view_order_form"/>
-        <field name="arch" type="xml">
             <xpath expr="//field[@name='order_line']//list//field[@name='product_template_id']" position="after">
                 <button name="action_view_forecast"
                         type="object"
@@ -27,6 +19,9 @@
             </xpath>
         </field>
     </record>
+
+    <!-- Remove stale view record from previous upgrade attempt -->
+    <delete model="ir.ui.view" search="[('key', '=', 'custom_werk_festor.sale_order_line_pickings_button')]"/>
 
     <record id="rental_order_form_inherit_verifieer" model="ir.ui.view">
         <field name="name">rental.order.form.inherit.verifieer</field>
