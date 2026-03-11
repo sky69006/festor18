@@ -42,7 +42,7 @@ class SaleOrder(models.Model):
         if not self.rental_start_date or not self.rental_return_date:
             raise UserError("Stel eerst de eventdatum in voordat je de beschikbaarheid controleert.")
 
-        problems = []
+        product_results = []
 
         for line in self.order_line:
             product = line.product_id
@@ -76,52 +76,131 @@ class SaleOrder(models.Model):
                             'end': other_order.df_eindDatum,
                         })
 
-            # Get total on-hand stock
             qty_on_hand = product.qty_available
-
             available = qty_on_hand - qty_reserved
-            if available < qty_needed:
-                detail_lines = []
-                for c in conflicting:
-                    period = ''
-                    if c['start'] and c['end']:
-                        period = f" ({c['start'].strftime('%d/%m/%Y')} - {c['end'].strftime('%d/%m/%Y')})"
-                    detail_lines.append(
-                        f"  - {c['order']} / {c['partner']}: {c['qty']:.0f} stuks{period}"
-                    )
 
-                problems.append(
-                    f"<b>{product.display_name}</b>: {qty_needed:.0f} nodig, "
-                    f"{qty_on_hand:.0f} op voorraad, {qty_reserved:.0f} al gereserveerd "
-                    f"→ <b>{available:.0f} beschikbaar</b> (tekort: {qty_needed - available:.0f})\n"
-                    + "\n".join(detail_lines)
-                )
+            product_results.append({
+                'name': product.display_name,
+                'needed': qty_needed,
+                'on_hand': qty_on_hand,
+                'reserved': qty_reserved,
+                'available': available,
+                'ok': available >= qty_needed,
+                'conflicting': conflicting,
+            })
 
-        if problems:
-            message = "<br/><br/>".join(problems)
-        else:
-            message = "Alle verhuurproducten zijn beschikbaar voor deze periode!"
+        message = self._build_availability_html(product_results)
 
+        wizard = self.env['rental.availability.wizard'].create({
+            'result_html': message,
+        })
         return {
             'type': 'ir.actions.act_window',
             'name': 'Beschikbaarheid verhuurproducten',
-            'res_model': 'ir.ui.view',
+            'res_model': 'rental.availability.wizard',
+            'res_id': wizard.id,
             'view_mode': 'form',
             'target': 'new',
-            'flags': {'mode': 'readonly'},
-            'context': {
-                'default_name': message,
-            },
-        } if False else {
-            'type': 'ir.actions.client',
-            'tag': 'display_notification',
-            'params': {
-                'title': 'Beschikbaarheid verhuurproducten',
-                'message': message,
-                'type': 'danger' if problems else 'success',
-                'sticky': True,
-            },
         }
+
+    def _build_availability_html(self, product_results):
+        if not product_results:
+            return '<div style="text-align:center; padding:20px; color:#888;">Geen verhuurproducten gevonden op deze order.</div>'
+
+        all_ok = all(p['ok'] for p in product_results)
+        problems = [p for p in product_results if not p['ok']]
+
+        # Header with summary
+        if all_ok:
+            header = (
+                '<div style="background:#d4edda; border:1px solid #c3e6cb; border-radius:8px; '
+                'padding:16px; margin-bottom:16px; text-align:center;">'
+                '<span style="font-size:28px;">&#10004;</span><br/>'
+                '<b style="font-size:16px; color:#155724;">Alle verhuurproducten zijn beschikbaar!</b>'
+                '</div>'
+            )
+        else:
+            header = (
+                '<div style="background:#f8d7da; border:1px solid #f5c6cb; border-radius:8px; '
+                'padding:16px; margin-bottom:16px; text-align:center;">'
+                '<span style="font-size:28px;">&#9888;</span><br/>'
+                f'<b style="font-size:16px; color:#721c24;">{len(problems)} product(en) niet volledig beschikbaar</b>'
+                '</div>'
+            )
+
+        rows = ''
+        for p in product_results:
+            # Bar chart: show proportions
+            total = max(p['on_hand'], p['needed'], 1)
+            reserved_pct = min(p['reserved'] / total * 100, 100)
+            needed_pct = min(p['needed'] / total * 100, 100)
+
+            if p['ok']:
+                status_color = '#28a745'
+                status_icon = '&#10004;'
+                status_text = 'Beschikbaar'
+                row_bg = '#f0fff0'
+            else:
+                shortage = p['needed'] - p['available']
+                status_color = '#dc3545'
+                status_icon = '&#10008;'
+                status_text = f'Tekort: {shortage:.0f}'
+                row_bg = '#fff5f5'
+
+            # Build conflict details
+            conflict_html = ''
+            if p['conflicting']:
+                conflict_rows = ''
+                for c in p['conflicting']:
+                    period = ''
+                    if c['start'] and c['end']:
+                        period = f"{c['start'].strftime('%d/%m/%Y')} - {c['end'].strftime('%d/%m/%Y')}"
+                    conflict_rows += (
+                        f'<tr><td style="padding:2px 8px; color:#666;">{c["order"]}</td>'
+                        f'<td style="padding:2px 8px; color:#666;">{c["partner"]}</td>'
+                        f'<td style="padding:2px 8px; color:#666; text-align:right;">{c["qty"]:.0f}</td>'
+                        f'<td style="padding:2px 8px; color:#666;">{period}</td></tr>'
+                    )
+                conflict_html = (
+                    '<div style="margin-top:6px;">'
+                    '<table style="width:100%; font-size:12px;">'
+                    '<tr style="color:#999;"><td style="padding:2px 8px;">Order</td>'
+                    '<td style="padding:2px 8px;">Klant</td>'
+                    '<td style="padding:2px 8px; text-align:right;">Aantal</td>'
+                    '<td style="padding:2px 8px;">Periode</td></tr>'
+                    f'{conflict_rows}</table></div>'
+                )
+
+            # Visual bar
+            bar_html = (
+                '<div style="background:#e9ecef; border-radius:4px; height:20px; width:100%; position:relative; overflow:hidden;">'
+                f'<div style="background:#ffc107; height:100%; width:{reserved_pct:.0f}%; position:absolute; left:0; top:0;" title="Gereserveerd: {p["reserved"]:.0f}"></div>'
+                f'<div style="background:transparent; border-right:3px solid {status_color}; height:100%; width:{needed_pct:.0f}%; position:absolute; left:0; top:0;" title="Nodig: {p["needed"]:.0f}"></div>'
+                '</div>'
+                '<div style="display:flex; justify-content:space-between; font-size:11px; color:#888; margin-top:2px;">'
+                f'<span>&#9632; Gereserveerd: {p["reserved"]:.0f}</span>'
+                f'<span>Voorraad: {p["on_hand"]:.0f}</span>'
+                '</div>'
+            )
+
+            rows += (
+                f'<div style="background:{row_bg}; border:1px solid #dee2e6; border-radius:6px; padding:12px; margin-bottom:8px;">'
+                '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">'
+                f'<b style="font-size:14px;">{p["name"]}</b>'
+                f'<span style="color:{status_color}; font-weight:bold;">{status_icon} {status_text}</span>'
+                '</div>'
+                '<div style="display:flex; gap:20px; margin-bottom:6px; font-size:13px;">'
+                f'<span>Nodig: <b>{p["needed"]:.0f}</b></span>'
+                f'<span>Voorraad: <b>{p["on_hand"]:.0f}</b></span>'
+                f'<span>Gereserveerd: <b>{p["reserved"]:.0f}</b></span>'
+                f'<span>Beschikbaar: <b style="color:{status_color};">{p["available"]:.0f}</b></span>'
+                '</div>'
+                f'{bar_html}'
+                f'{conflict_html}'
+                '</div>'
+            )
+
+        return header + rows
 
     def df_analyze(self):
         for record in self:

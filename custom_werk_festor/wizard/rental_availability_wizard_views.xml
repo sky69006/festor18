@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="rental_availability_wizard_form" model="ir.ui.view">
+        <field name="name">rental.availability.wizard.form</field>
+        <field name="model">rental.availability.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Beschikbaarheid verhuurproducten">
+                <field name="result_html" nolabel="1"/>
+                <footer>
+                    <button string="Sluiten" class="btn-primary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>
