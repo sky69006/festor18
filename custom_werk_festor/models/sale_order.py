@@ -46,6 +46,10 @@ class SaleOrder(models.Model):
         rental_start = self.rental_start_date
         rental_end = self.rental_return_date
 
+        # Timeline window: 2 weeks before and after the rental period
+        window_start = rental_start - timedelta(days=14)
+        window_end = rental_end + timedelta(days=14)
+
         for line in self.order_line:
             product = line.product_id
             if not product or not product.rent_ok:
@@ -55,31 +59,42 @@ class SaleOrder(models.Model):
             if qty_needed <= 0:
                 continue
 
-            # Search for conflicting rental order lines directly:
-            # Lines on other confirmed/done orders, same product, overlapping rental period
-            conflicting_lines = self.env['sale.order.line'].search([
+            # Get ALL rental lines for this product in the wider timeline window
+            nearby_lines = self.env['sale.order.line'].search([
                 ('order_id', '!=', self.id),
                 ('order_id.state', 'in', ['sale', 'done']),
                 ('product_id', '=', product.id),
                 ('product_uom_qty', '>', 0),
-                ('start_date', '<', rental_end),
-                ('return_date', '>', rental_start),
+                ('start_date', '<', window_end),
+                ('return_date', '>', window_start),
             ])
 
+            # Filter to only those that overlap with our rental period
             qty_reserved = 0.0
             conflicting = []
-            for cl in conflicting_lines:
-                qty_reserved += cl.product_uom_qty
-                conflicting.append({
-                    'order': cl.order_id.name,
-                    'partner': cl.order_id.partner_id.display_name or '',
-                    'qty': cl.product_uom_qty,
-                    'start': cl.order_id.df_startDatum,
-                    'end': cl.order_id.df_eindDatum,
-                })
+            for cl in nearby_lines:
+                if cl.start_date < rental_end and cl.return_date > rental_start:
+                    qty_reserved += cl.product_uom_qty
+                    conflicting.append({
+                        'order': cl.order_id.name,
+                        'partner': cl.order_id.partner_id.display_name or '',
+                        'qty': cl.product_uom_qty,
+                        'start': cl.order_id.df_startDatum,
+                        'end': cl.order_id.df_eindDatum,
+                    })
 
             qty_on_hand = product.qty_available
             available = qty_on_hand - qty_reserved
+
+            # Collect timeline events from all nearby lines
+            timeline_events = []
+            for cl in nearby_lines:
+                timeline_events.append({
+                    'start': cl.start_date,
+                    'end': cl.return_date,
+                    'qty': cl.product_uom_qty,
+                    'order': cl.order_id.name,
+                })
 
             product_results.append({
                 'name': product.display_name,
@@ -89,6 +104,11 @@ class SaleOrder(models.Model):
                 'available': available,
                 'ok': available >= qty_needed,
                 'conflicting': conflicting,
+                'timeline_events': timeline_events,
+                'window_start': window_start,
+                'window_end': window_end,
+                'rental_start': rental_start,
+                'rental_end': rental_end,
             })
 
         message = self._build_availability_html(product_results)
@@ -105,6 +125,142 @@ class SaleOrder(models.Model):
             'target': 'new',
         }
 
+    def _build_timeline_svg(self, p):
+        """Build an SVG timeline chart showing virtual stock over time."""
+        w = 560  # chart width
+        h = 100  # chart height
+        margin_left = 40
+        margin_right = 10
+        margin_top = 10
+        margin_bottom = 30
+        chart_w = w - margin_left - margin_right
+        chart_h = h - margin_top - margin_bottom
+
+        window_start = p['window_start']
+        window_end = p['window_end']
+        total_seconds = (window_end - window_start).total_seconds() or 1
+
+        def x_pos(dt):
+            return margin_left + ((dt - window_start).total_seconds() / total_seconds) * chart_w
+
+        # Build step function of available stock over time
+        # Collect all time boundaries
+        events = []
+        for ev in p['timeline_events']:
+            events.append((ev['start'], -ev['qty']))   # stock goes down
+            events.append((ev['end'], +ev['qty']))      # stock comes back
+
+        events.sort(key=lambda e: e[0])
+
+        # Build the step points
+        stock = p['on_hand']
+        points = [(window_start, stock)]
+        for dt, delta in events:
+            # Add point at current level just before the change
+            points.append((dt, stock))
+            stock += delta
+            points.append((dt, stock))
+        points.append((window_end, stock))
+
+        # Calculate y scale
+        max_qty = max(p['on_hand'], p['needed'] + 1, 1)
+        min_stock = min(pt[1] for pt in points)
+        if min_stock < 0:
+            y_min = min_stock - 1
+        else:
+            y_min = 0
+        y_max = max_qty + 1
+
+        def y_pos(qty):
+            if y_max == y_min:
+                return margin_top + chart_h / 2
+            return margin_top + chart_h - ((qty - y_min) / (y_max - y_min)) * chart_h
+
+        # Start building SVG
+        svg = f'<svg width="{w}" height="{h}" xmlns="http://www.w3.org/2000/svg" style="font-family:sans-serif;">'
+
+        # Background
+        svg += f'<rect x="{margin_left}" y="{margin_top}" width="{chart_w}" height="{chart_h}" fill="#f8f9fa" stroke="#dee2e6" stroke-width="1"/>'
+
+        # Highlight current rental period
+        rx1 = x_pos(p['rental_start'])
+        rx2 = x_pos(p['rental_end'])
+        svg += f'<rect x="{rx1:.1f}" y="{margin_top}" width="{max(rx2 - rx1, 2):.1f}" height="{chart_h}" fill="#fff3cd" opacity="0.6"/>'
+
+        # "Needed" quantity line (dashed red/green)
+        needed_y = y_pos(p['needed'])
+        needed_color = '#28a745' if p['ok'] else '#dc3545'
+        svg += f'<line x1="{margin_left}" y1="{needed_y:.1f}" x2="{margin_left + chart_w}" y2="{needed_y:.1f}" stroke="{needed_color}" stroke-width="1" stroke-dasharray="4,3" opacity="0.7"/>'
+        svg += f'<text x="{margin_left - 4}" y="{needed_y + 3:.1f}" text-anchor="end" font-size="9" fill="{needed_color}">{p["needed"]:.0f}</text>'
+
+        # Zero line if needed
+        if y_min < 0:
+            zero_y = y_pos(0)
+            svg += f'<line x1="{margin_left}" y1="{zero_y:.1f}" x2="{margin_left + chart_w}" y2="{zero_y:.1f}" stroke="#aaa" stroke-width="0.5" stroke-dasharray="2,2"/>'
+
+        # Stock line - build polyline with fill
+        # Area fill under the line
+        area_points = []
+        for dt, qty in points:
+            px = x_pos(dt)
+            py = y_pos(qty)
+            area_points.append(f'{px:.1f},{py:.1f}')
+
+        # Close the area to the bottom
+        baseline_y = y_pos(max(y_min, 0))
+        area_path = (
+            f'M {x_pos(points[0][0]):.1f},{baseline_y:.1f} '
+            + ' L '.join(f'{x_pos(dt):.1f},{y_pos(qty):.1f}' for dt, qty in points)
+            + f' L {x_pos(points[-1][0]):.1f},{baseline_y:.1f} Z'
+        )
+
+        # Color the area: green above needed, red below
+        svg += f'<path d="{area_path}" fill="#71b5e0" opacity="0.25"/>'
+
+        # Stock step line
+        line_points = ' '.join(f'{x_pos(dt):.1f},{y_pos(qty):.1f}' for dt, qty in points)
+        svg += f'<polyline points="{line_points}" fill="none" stroke="#4c8dba" stroke-width="2"/>'
+
+        # Red zone where stock < needed within the rental period
+        # Find the stock level at the rental period
+        for i in range(len(points) - 1):
+            dt1, qty1 = points[i]
+            dt2, qty2 = points[i + 1]
+            # Only draw red if in or near the rental period and below needed
+            seg_start = max(dt1, p['rental_start'])
+            seg_end = min(dt2, p['rental_end'])
+            if seg_start < seg_end and qty1 < p['needed']:
+                sx1 = x_pos(seg_start)
+                sx2 = x_pos(seg_end)
+                sy = y_pos(qty1)
+                sn = y_pos(p['needed'])
+                svg += f'<rect x="{sx1:.1f}" y="{min(sy, sn):.1f}" width="{max(sx2 - sx1, 1):.1f}" height="{abs(sn - sy):.1f}" fill="#dc3545" opacity="0.2"/>'
+
+        # On-hand line
+        onhand_y = y_pos(p['on_hand'])
+        svg += f'<line x1="{margin_left}" y1="{onhand_y:.1f}" x2="{margin_left + chart_w}" y2="{onhand_y:.1f}" stroke="#888" stroke-width="0.5" stroke-dasharray="2,2"/>'
+        svg += f'<text x="{margin_left - 4}" y="{onhand_y + 3:.1f}" text-anchor="end" font-size="9" fill="#888">{p["on_hand"]:.0f}</text>'
+
+        # Rental period markers
+        svg += f'<line x1="{rx1:.1f}" y1="{margin_top}" x2="{rx1:.1f}" y2="{margin_top + chart_h}" stroke="#e67e00" stroke-width="1.5" stroke-dasharray="3,2"/>'
+        svg += f'<line x1="{rx2:.1f}" y1="{margin_top}" x2="{rx2:.1f}" y2="{margin_top + chart_h}" stroke="#e67e00" stroke-width="1.5" stroke-dasharray="3,2"/>'
+
+        # X-axis date labels
+        num_labels = 5
+        for i in range(num_labels + 1):
+            frac = i / num_labels
+            dt = window_start + timedelta(seconds=total_seconds * frac)
+            px = margin_left + frac * chart_w
+            label = dt.strftime('%d/%m')
+            svg += f'<text x="{px:.1f}" y="{h - 4}" text-anchor="middle" font-size="9" fill="#888">{label}</text>'
+            svg += f'<line x1="{px:.1f}" y1="{margin_top + chart_h}" x2="{px:.1f}" y2="{margin_top + chart_h + 3}" stroke="#aaa" stroke-width="0.5"/>'
+
+        # Y-axis: 0 label
+        svg += f'<text x="{margin_left - 4}" y="{y_pos(0) + 3:.1f}" text-anchor="end" font-size="9" fill="#aaa">0</text>'
+
+        svg += '</svg>'
+        return svg
+
     def _build_availability_html(self, product_results):
         if not product_results:
             return '<div style="text-align:center; padding:20px; color:#888;">Geen verhuurproducten gevonden op deze order.</div>'
@@ -112,7 +268,6 @@ class SaleOrder(models.Model):
         all_ok = all(p['ok'] for p in product_results)
         problems = [p for p in product_results if not p['ok']]
 
-        # Header with summary
         if all_ok:
             header = (
                 '<div style="background:#d4edda; border:1px solid #c3e6cb; border-radius:8px; '
@@ -132,11 +287,6 @@ class SaleOrder(models.Model):
 
         rows = ''
         for p in product_results:
-            # Bar chart: show proportions
-            total = max(p['on_hand'], p['needed'], 1)
-            reserved_pct = min(p['reserved'] / total * 100, 100)
-            needed_pct = min(p['needed'] / total * 100, 100)
-
             if p['ok']:
                 status_color = '#28a745'
                 status_icon = '&#10004;'
@@ -173,17 +323,18 @@ class SaleOrder(models.Model):
                     f'{conflict_rows}</table></div>'
                 )
 
-            # Visual bar
-            bar_html = (
-                '<div style="background:#e9ecef; border-radius:4px; height:20px; width:100%; position:relative; overflow:hidden;">'
-                f'<div style="background:#ffc107; height:100%; width:{reserved_pct:.0f}%; position:absolute; left:0; top:0;" title="Gereserveerd: {p["reserved"]:.0f}"></div>'
-                f'<div style="background:transparent; border-right:3px solid {status_color}; height:100%; width:{needed_pct:.0f}%; position:absolute; left:0; top:0;" title="Nodig: {p["needed"]:.0f}"></div>'
+            # SVG timeline chart
+            timeline_svg = self._build_timeline_svg(p)
+
+            # Legend
+            legend = (
+                '<div style="display:flex; gap:16px; font-size:11px; color:#888; margin-top:4px; flex-wrap:wrap;">'
+                '<span><span style="display:inline-block;width:12px;height:12px;background:#fff3cd;border:1px solid #e67e00;vertical-align:middle;margin-right:3px;"></span>Verhuurperiode</span>'
+                '<span><span style="display:inline-block;width:12px;height:2px;background:#4c8dba;vertical-align:middle;margin-right:3px;"></span>Beschikbare voorraad</span>'
+                f'<span><span style="display:inline-block;width:12px;height:1px;border-top:2px dashed {status_color};vertical-align:middle;margin-right:3px;"></span>Nodig ({p["needed"]:.0f})</span>'
+                '<span><span style="display:inline-block;width:12px;height:1px;border-top:1px dashed #888;vertical-align:middle;margin-right:3px;"></span>Voorraad ({on_hand})</span>'
                 '</div>'
-                '<div style="display:flex; justify-content:space-between; font-size:11px; color:#888; margin-top:2px;">'
-                f'<span>&#9632; Gereserveerd: {p["reserved"]:.0f}</span>'
-                f'<span>Voorraad: {p["on_hand"]:.0f}</span>'
-                '</div>'
-            )
+            ).format(on_hand=f'{p["on_hand"]:.0f}')
 
             rows += (
                 f'<div style="background:{row_bg}; border:1px solid #dee2e6; border-radius:6px; padding:12px; margin-bottom:8px;">'
@@ -197,7 +348,8 @@ class SaleOrder(models.Model):
                 f'<span>Gereserveerd: <b>{p["reserved"]:.0f}</b></span>'
                 f'<span>Beschikbaar: <b style="color:{status_color};">{p["available"]:.0f}</b></span>'
                 '</div>'
-                f'{bar_html}'
+                f'{timeline_svg}'
+                f'{legend}'
                 f'{conflict_html}'
                 '</div>'
             )
