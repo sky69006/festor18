@@ -13,6 +13,21 @@
         </field>
     </record>
 
+    <record id="sale_order_line_pickings_button" model="ir.ui.view">
+        <field name="name">sale.order.line.pickings.button</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_order_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='order_line']//list//field[@name='product_template_id']" position="after">
+                <button name="action_view_pickings"
+                        type="object"
+                        icon="fa-truck"
+                        title="Toon pickings"
+                        class="btn-link"/>
+            </xpath>
+        </field>
+    </record>
+
     <record id="rental_order_form_inherit_verifieer" model="ir.ui.view">
         <field name="name">rental.order.form.inherit.verifieer</field>
         <field name="model">sale.order</field>
