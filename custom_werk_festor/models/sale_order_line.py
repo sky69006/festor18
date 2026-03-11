@@ -4,23 +4,10 @@ import re
 class SaleOrderLine(models.Model):
     _inherit = 'sale.order.line'
 
-    def action_view_pickings(self):
-        """Open a popup showing all pickings where this product is reserved."""
+    def action_view_forecast(self):
+        """Open the stock forecast (prognose) view for this line's product."""
         self.ensure_one()
-        pickings = self.move_ids.picking_id
-        action = {
-            'name': _('Pickings voor %s', self.product_id.display_name),
-            'type': 'ir.actions.act_window',
-            'res_model': 'stock.picking',
-            'view_mode': 'list,form',
-            'domain': [('id', 'in', pickings.ids)],
-            'target': 'new',
-            'context': self.env.context,
-        }
-        if len(pickings) == 1:
-            action['view_mode'] = 'form'
-            action['res_id'] = pickings.id
-        return action
+        return self.product_id.action_product_forecast_report()
 
     @api.model
     def _create_sale_order_lines_from_rental(self, rental_order):
