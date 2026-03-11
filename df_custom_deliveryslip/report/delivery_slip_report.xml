@@ -5,15 +5,17 @@
         <xpath expr="//div[@name='div_sched_date']" position="replace">
             <div class="col-auto" name="div_event_date">
                 <strong>Datum event:</strong>
-                <p t-if="o.sale_id and o.sale_id.df_startDatum"
-                   t-out="o.sale_id.df_startDatum"
-                   t-options='{"widget": "datetime", "format": "dd/MM/yyyy HH:mm"}'/>
-                <p t-else="">-</p>
+                <br/>
+                <span t-if="o.sale_id and o.sale_id.df_startDatum"
+                      t-out="o.sale_id.df_startDatum"
+                      t-options='{"widget": "datetime", "format": "dd/MM/yyyy HH:mm"}'/>
+                <span t-else="">-</span>
             </div>
             <div class="col-auto" name="div_print_date">
                 <strong>Afdrukdatum:</strong>
-                <p t-out="datetime.datetime.now()"
-                   t-options='{"widget": "datetime", "format": "dd/MM/yyyy HH:mm"}'/>
+                <br/>
+                <span t-out="datetime.datetime.now()"
+                      t-options='{"widget": "datetime", "format": "dd/MM/yyyy HH:mm"}'/>
             </div>
         </xpath>
     </template>
