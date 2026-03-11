@@ -36,13 +36,15 @@ class SaleOrder(models.Model):
     x_studio_aantal_personen = fields.Integer("Aantal personen")
 
     def action_verify_rental_availability(self):
-        """Check if all rental products are available for the event period."""
+        """Check if all rental products are available for the rental period."""
         self.ensure_one()
 
         if not self.rental_start_date or not self.rental_return_date:
             raise UserError("Stel eerst de eventdatum in voordat je de beschikbaarheid controleert.")
 
         product_results = []
+        rental_start = self.rental_start_date
+        rental_end = self.rental_return_date
 
         for line in self.order_line:
             product = line.product_id
@@ -53,28 +55,28 @@ class SaleOrder(models.Model):
             if qty_needed <= 0:
                 continue
 
-            # Find all OTHER confirmed/done sale orders with overlapping rental periods
-            overlapping_orders = self.env['sale.order'].search([
-                ('id', '!=', self.id),
-                ('state', 'in', ['sale', 'done']),
-                ('rental_start_date', '<', self.rental_return_date),
-                ('rental_return_date', '>', self.rental_start_date),
+            # Search for conflicting rental order lines directly:
+            # Lines on other confirmed/done orders, same product, overlapping rental period
+            conflicting_lines = self.env['sale.order.line'].search([
+                ('order_id', '!=', self.id),
+                ('order_id.state', 'in', ['sale', 'done']),
+                ('product_id', '=', product.id),
+                ('product_uom_qty', '>', 0),
+                ('start_date', '<', rental_end),
+                ('return_date', '>', rental_start),
             ])
 
-            # Sum quantities reserved by overlapping orders for this product
             qty_reserved = 0.0
             conflicting = []
-            for other_order in overlapping_orders:
-                for other_line in other_order.order_line:
-                    if other_line.product_id == product and other_line.product_uom_qty > 0:
-                        qty_reserved += other_line.product_uom_qty
-                        conflicting.append({
-                            'order': other_order.name,
-                            'partner': other_order.partner_id.display_name or '',
-                            'qty': other_line.product_uom_qty,
-                            'start': other_order.df_startDatum,
-                            'end': other_order.df_eindDatum,
-                        })
+            for cl in conflicting_lines:
+                qty_reserved += cl.product_uom_qty
+                conflicting.append({
+                    'order': cl.order_id.name,
+                    'partner': cl.order_id.partner_id.display_name or '',
+                    'qty': cl.product_uom_qty,
+                    'start': cl.order_id.df_startDatum,
+                    'end': cl.order_id.df_eindDatum,
+                })
 
             qty_on_hand = product.qty_available
             available = qty_on_hand - qty_reserved

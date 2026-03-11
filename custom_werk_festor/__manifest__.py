@@ -5,7 +5,7 @@
     'name': "Custom werk Festor",
     'category': "Hidden",
     'summary': 'Custom werk Festor by Dataforge',
-    'version': '18.0.3.0.0',
+    'version': '18.0.4.0.0',
     'description': """
         Custom werk Festor
     """,
