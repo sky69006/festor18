@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<odoo>
+    <template id="delivery_slip_custom_dates" inherit_id="stock.report_delivery_document">
+        <!-- Replace the Verzenddatum (verzendingsdatum) block with event date and current date -->
+        <xpath expr="//div[@name='div_sched_date']" position="replace">
+            <div class="col-auto" name="div_event_date">
+                <strong>Datum event:</strong>
+                <p t-if="o.sale_id and o.sale_id.df_startDatum"
+                   t-out="o.sale_id.df_startDatum"
+                   t-options='{"widget": "datetime", "format": "dd/MM/yyyy HH:mm"}'/>
+                <p t-else="">-</p>
+            </div>
+            <div class="col-auto" name="div_print_date">
+                <strong>Afdrukdatum:</strong>
+                <p t-out="datetime.datetime.now()"
+                   t-options='{"widget": "datetime", "format": "dd/MM/yyyy HH:mm"}'/>
+            </div>
+        </xpath>
+    </template>
+</odoo>
