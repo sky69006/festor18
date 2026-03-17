@@ -469,13 +469,15 @@ class SaleOrder(models.Model):
 
     def _datum_rapport(self):
         for record in self:
-            if record.df_startDatum != False and record.df_eindDatum != False:
-                verschil = record.df_eindDatum.date() - record.df_startDatum.date()
+            if record.df_startDatum and record.df_eindDatum:
+                local_start = fields.Datetime.context_timestamp(record, record.df_startDatum)
+                local_end = fields.Datetime.context_timestamp(record, record.df_eindDatum)
+                verschil = local_end.date() - local_start.date()
                 if verschil.days <= 1:
-                    record.df_datum_event_rapport = record.df_startDatum.strftime("%d/%m/%Y")
+                    record.df_datum_event_rapport = local_start.strftime("%d/%m/%Y")
                 else:
-                    record.df_datum_event_rapport = record.df_startDatum.strftime("%d/%m/%Y") + ' tot ' + record.df_eindDatum.strftime("%d/%m/%Y")
-            elif record.x_studio_datum_event != False:
+                    record.df_datum_event_rapport = local_start.strftime("%d/%m/%Y") + ' tot ' + local_end.strftime("%d/%m/%Y")
+            elif record.x_studio_datum_event:
                 record.df_datum_event_rapport = record.x_studio_datum_event.strftime("%d/%m/%Y")
             else:
                 record.df_datum_event_rapport = ''
