@@ -7,48 +7,42 @@
         <xpath expr="//div[@id='informations']" position="inside">
 
 
-            <!-- ==== 1) Van/tot event ==== -->
+            <!-- ==== 1) Van/tot event (df_startDatum / df_eindDatum) ==== -->
             <div t-if="doc.df_startDatum or doc.df_eindDatum" class="col">
                 <strong>Van/tot event</strong>
                 <div>
 
-                    <!-- Start -->
                     <t t-if="doc.df_startDatum">
-                        <t t-out="context_timestamp(doc, doc.df_startDatum).strftime('%d/%m/%Y %H:%M')"/>
+                        <span t-field="doc.df_startDatum" t-options='{"widget": "datetime", "format": "dd/MM/yyyy HH:mm"}'/>
                     </t>
 
-                    <!-- Separator -->
                     <t t-if="doc.df_startDatum and doc.df_eindDatum">
                         <p style="margin:0;">tot</p>
                     </t>
 
-                    <!-- Einde -->
                     <t t-if="doc.df_eindDatum">
-                        <t t-out="context_timestamp(doc, doc.df_eindDatum).strftime('%d/%m/%Y %H:%M')"/>
+                        <span t-field="doc.df_eindDatum" t-options='{"widget": "datetime", "format": "dd/MM/yyyy HH:mm"}'/>
                     </t>
 
                 </div>
             </div>
 
 
-            <!-- ==== 2) Rental period ==== -->
-            <div t-if="doc.rental_start_date or doc.rental_return_date" class="col">
+            <!-- ==== 2) Fallback: rental period (only if df dates are empty) ==== -->
+            <div t-if="not doc.df_startDatum and not doc.df_eindDatum and (doc.rental_start_date or doc.rental_return_date)" class="col">
                 <strong>Van/tot event</strong>
                 <div>
 
-                    <!-- Start -->
                     <t t-if="doc.rental_start_date">
-                        <t t-out="context_timestamp(doc, doc.rental_start_date).strftime('%d/%m/%Y %H:%M')"/>
+                        <span t-field="doc.rental_start_date" t-options='{"widget": "datetime", "format": "dd/MM/yyyy HH:mm"}'/>
                     </t>
 
-                    <!-- Separator -->
                     <t t-if="doc.rental_start_date and doc.rental_return_date">
                         <p style="margin:0;">tot</p>
                     </t>
 
-                    <!-- Einde -->
                     <t t-if="doc.rental_return_date">
-                        <t t-out="context_timestamp(doc, doc.rental_return_date).strftime('%d/%m/%Y %H:%M')"/>
+                        <span t-field="doc.rental_return_date" t-options='{"widget": "datetime", "format": "dd/MM/yyyy HH:mm"}'/>
                     </t>
 
                 </div>
