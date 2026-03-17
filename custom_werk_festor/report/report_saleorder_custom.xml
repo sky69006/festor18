@@ -14,7 +14,7 @@
 
                     <!-- Start -->
                     <t t-if="doc.df_startDatum">
-                        <t t-out="doc.df_startDatum.strftime('%d/%m/%Y %H:%M')"/>
+                        <t t-out="context_timestamp(doc, doc.df_startDatum).strftime('%d/%m/%Y %H:%M')"/>
                     </t>
 
                     <!-- Separator -->
@@ -24,7 +24,7 @@
 
                     <!-- Einde -->
                     <t t-if="doc.df_eindDatum">
-                        <t t-out="doc.df_eindDatum.strftime('%d/%m/%Y %H:%M')"/>
+                        <t t-out="context_timestamp(doc, doc.df_eindDatum).strftime('%d/%m/%Y %H:%M')"/>
                     </t>
 
                 </div>
@@ -38,7 +38,7 @@
 
                     <!-- Start -->
                     <t t-if="doc.rental_start_date">
-                        <t t-out="doc.rental_start_date.strftime('%d/%m/%Y %H:%M')"/>
+                        <t t-out="context_timestamp(doc, doc.rental_start_date).strftime('%d/%m/%Y %H:%M')"/>
                     </t>
 
                     <!-- Separator -->
@@ -48,7 +48,7 @@
 
                     <!-- Einde -->
                     <t t-if="doc.rental_return_date">
-                        <t t-out="doc.rental_return_date.strftime('%d/%m/%Y %H:%M')"/>
+                        <t t-out="context_timestamp(doc, doc.rental_return_date).strftime('%d/%m/%Y %H:%M')"/>
                     </t>
 
                 </div>
