@@ -6,43 +6,52 @@
 
         <xpath expr="//div[@id='informations']" position="inside">
 
-
             <!-- ==== 1) Van/tot event (df_startDatum / df_eindDatum) ==== -->
             <div t-if="doc.df_startDatum or doc.df_eindDatum" class="col">
                 <strong>Van/tot event</strong>
                 <div>
 
+                    <!-- Start -->
                     <t t-if="doc.df_startDatum">
-                        <span t-field="doc.df_startDatum" t-options='{"widget": "datetime", "format": "dd/MM/yyyy HH:mm"}'/>
+                        <span t-field="doc.df_startDatum"/>
                     </t>
 
+                    <!-- Separator -->
                     <t t-if="doc.df_startDatum and doc.df_eindDatum">
-                        <p style="margin:0;">tot</p>
+                        <br/>
+                        <span>tot</span>
+                        <br/>
                     </t>
 
+                    <!-- Einde -->
                     <t t-if="doc.df_eindDatum">
-                        <span t-field="doc.df_eindDatum" t-options='{"widget": "datetime", "format": "dd/MM/yyyy HH:mm"}'/>
+                        <span t-field="doc.df_eindDatum"/>
                     </t>
 
                 </div>
             </div>
 
 
-            <!-- ==== 2) Fallback: rental period (only if df dates are empty) ==== -->
+            <!-- ==== 2) Fallback: rental period ==== -->
             <div t-if="not doc.df_startDatum and not doc.df_eindDatum and (doc.rental_start_date or doc.rental_return_date)" class="col">
                 <strong>Van/tot event</strong>
                 <div>
 
+                    <!-- Start -->
                     <t t-if="doc.rental_start_date">
-                        <span t-field="doc.rental_start_date" t-options='{"widget": "datetime", "format": "dd/MM/yyyy HH:mm"}'/>
+                        <span t-field="doc.rental_start_date"/>
                     </t>
 
+                    <!-- Separator -->
                     <t t-if="doc.rental_start_date and doc.rental_return_date">
-                        <p style="margin:0;">tot</p>
+                        <br/>
+                        <span>tot</span>
+                        <br/>
                     </t>
 
+                    <!-- Einde -->
                     <t t-if="doc.rental_return_date">
-                        <span t-field="doc.rental_return_date" t-options='{"widget": "datetime", "format": "dd/MM/yyyy HH:mm"}'/>
+                        <span t-field="doc.rental_return_date"/>
                     </t>
 
                 </div>
@@ -53,10 +62,9 @@
             <div t-if="doc.x_studio_aantal_personen" class="col">
                 <strong>Aantal personen</strong>
                 <div>
-                    <t t-out="doc.x_studio_aantal_personen"/>
+                    <span t-field="doc.x_studio_aantal_personen"/>
                 </div>
             </div>
-
 
         </xpath>
     </template>
